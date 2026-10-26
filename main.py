@@ -1,14 +1,12 @@
-from pathlib import Path
 import uvicorn
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles
 
 from auth.router import router as auth_router
+from journal.router import router as journal_router
 
 app = FastAPI(
-    title="Anime Lounge API",
+    title="Log Journal API",
     docs_url="/docs",
     openapi_url="/openapi.json",
     version="0.0.1",
@@ -31,10 +29,11 @@ app.add_middleware(
 
 @app.get("/api/health")
 async def health_check():
-    return {"message": "Anime Lounge API in FastAPI"}
+    return {"message": "API is healthy"}
 
 
 app.include_router(auth_router, prefix="")
+app.include_router(journal_router, prefix="")
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

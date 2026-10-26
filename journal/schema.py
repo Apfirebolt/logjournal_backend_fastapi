@@ -1,46 +1,72 @@
-from typing import Optional
 from pydantic import BaseModel
+from typing import List, Optional, Any, Dict
+from datetime import datetime
 
 
-class AnimeBase(BaseModel):
-    mal_id: Optional[int] = None
-    title: str
-    title_english: Optional[str] = None
-    title_japanese: Optional[str] = None
-    type: Optional[str] = None
-    source: Optional[str] = None
-    episodes: Optional[int] = None
-    status: Optional[str] = None
-    airing: Optional[bool] = None
-    aired_from: Optional[str] = None
-    aired_to: Optional[str] = None
-    duration: Optional[str] = None
-    rating: Optional[str] = None
-    score: Optional[float] = None
-    scored_by: Optional[int] = None
-    rank: Optional[int] = None
-    popularity: Optional[int] = None
-    members: Optional[int] = None
-    favorites: Optional[int] = None
-    season: Optional[str] = None
-    year: Optional[int] = None
-    studios: Optional[str] = None
-    producers: Optional[str] = None
-    licensors: Optional[str] = None
-    genres: Optional[str] = None
-    themes: Optional[str] = None
-    demographics: Optional[str] = None
-    synopsis: Optional[str] = None
-    image_url: Optional[str] = None
+class CategoryBase(BaseModel):
+    name: str
 
-
-class AnimeCreate(AnimeBase):
+class CategoryCreate(CategoryBase):
     pass
 
-
-class AnimeResponse(AnimeBase):
+class CategoryResponse(CategoryBase):
     id: int
+    is_default: int
+    user_id: Optional[int] = None
 
-    model_config = {
-        "from_attributes": True
-    }
+    class Config:
+        from_attributes = True
+
+
+# Input/Output schema for category-specific content and rating inside an entry
+class EntryCategorySectionCreate(BaseModel):
+    category_id: int
+    content: Optional[Any] = None      # Rich HTML/JSON blocks for this category (nullable)
+    rating_score: Optional[float] = None # Rating for this category (nullable)
+
+
+class EntryCategorySectionResponse(BaseModel):
+    id: int
+    category_id: int
+    category_name: Optional[str] = None
+    content: Optional[Any] = None
+    rating_score: Optional[float] = None
+
+    class Config:
+        from_attributes = True
+
+
+# Main Journal Entry Schemas
+class JournalEntryCreate(BaseModel):
+    title: Optional[str] = None
+    highlights: Optional[Any] = None          # Global prompt
+    gratitude: Optional[Any] = None           # Global prompt
+    better_day_thoughts: Optional[Any] = None # Global prompt
+    
+    # List of category sections (Work, Health, Family, Friends, etc.) Alice chose to fill out today
+    category_sections: List[EntryCategorySectionCreate] = []
+
+
+class JournalEntryUpdate(BaseModel):
+    title: Optional[str] = None
+    highlights: Optional[Any] = None
+    gratitude: Optional[Any] = None
+    better_day_thoughts: Optional[Any] = None
+    category_sections: Optional[List[EntryCategorySectionCreate]] = None
+
+
+class JournalEntryResponse(BaseModel):
+    id: int
+    user_id: int
+    title: Optional[str] = None
+    highlights: Optional[Any] = None
+    gratitude: Optional[Any] = None
+    better_day_thoughts: Optional[Any] = None
+    created_at: datetime
+    updated_at: datetime
+    
+    # Rendered category sections with their content and ratings
+    category_sections: List[EntryCategorySectionResponse] = []
+
+    class Config:
+        from_attributes = True

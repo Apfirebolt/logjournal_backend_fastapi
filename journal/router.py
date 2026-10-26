@@ -1,34 +1,37 @@
+from fastapi import APIRouter, status, Depends
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from . import schema, services
+from auth.jwt import get_current_user
+from auth import schema as auth_schema
 
-from config.db import SessionLocal
-from anime.schema import AnimeResponse
-from anime import services
-
-router = APIRouter(
-    prefix="",
-    tags=["Anime"]
-)
+router = APIRouter(tags=['Journal'], prefix='/api/journal')
 
 
-# Dependency to get DB session
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+@router.get('/categories', response_model=List[schema.CategoryResponse])
+async def get_categories(current_user: auth_schema.TokenData = Depends(get_current_user)):
+    """Fetch default system categories + user custom categories"""
+    return await services.fetch_user_categories(current_user.id)
 
 
-@router.get("", response_model=List[AnimeResponse])
-def read_anime_list(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    return services.get_all_anime(db, skip=skip, limit=limit)
+@router.post('/categories', response_model=schema.CategoryResponse, status_code=status.HTTP_201_CREATED)
+async def create_category(request: schema.CategoryCreate, current_user: auth_schema.TokenData = Depends(get_current_user)):
+    """Allow user to add custom categories (e.g. Friends)"""
+    return await services.add_custom_category(current_user.id, request)
 
 
-@router.get("/{anime_id}", response_model=AnimeResponse)
-def read_anime_item(anime_id: int, db: Session = Depends(get_db)):
-    anime = services.get_anime_by_id(db, anime_id)
-    if not anime:
-        raise HTTPException(status_code=404, detail="Anime not found")
-    return anime
+@router.post('/entries', response_model=schema.JournalEntryResponse, status_code=status.HTTP_201_CREATED)
+async def create_entry(request: schema.JournalEntryCreate, current_user: auth_schema.TokenData = Depends(get_current_user)):
+    """Create a daily journal entry with global prompts and optional category HTML sections + ratings"""
+    return await services.create_journal_entry(current_user.id, request)
+
+
+@router.get('/entries', response_model=List[schema.JournalEntryResponse])
+async def list_entries(current_user: auth_schema.TokenData = Depends(get_current_user)):
+    """Get all journal entries for the logged-in user"""
+    return await services.fetch_user_entries(current_user.id)
+
+
+@router.get('/entries/{entry_id}', response_model=schema.JournalEntryResponse)
+async def get_entry_detail(entry_id: int, current_user: auth_schema.TokenData = Depends(get_current_user)):
+    """Get a specific journal entry by ID"""
+    return await services.fetch_entry_detail(entry_id, current_user.id)
