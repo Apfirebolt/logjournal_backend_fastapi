@@ -1,15 +1,23 @@
+import os
+import sys
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.main import app  # Assuming your main FastAPI app instance is here
+# Ensure project root directory is in python path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+from main import app  # <-- Imports main.py from root level
 from config.db import Base
+import config.db as sync_db
 from auth.jwt import get_current_user
 from auth import schema as auth_schema
 
-# Use SQLite in-memory for fast isolated testing (or point to a test postgres DB)
+# Ensure all SQLAlchemy models are registered before tables are created
+import auth.models
+
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
 
 engine = create_engine(
@@ -20,14 +28,10 @@ engine = create_engine(
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # Override the database session maker used in sync db functions
-import config.db as sync_db
 sync_db.SessionLocal = TestingSessionLocal
 
 
 @pytest.fixture(autouse=True)
-import journal.models  # Ensure models are registered
-import auth.models     # Ensure auth models are registered
-
 def setup_database():
     Base.metadata.create_all(bind=engine)
     yield
