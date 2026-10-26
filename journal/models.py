@@ -1,5 +1,7 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Float, func
 from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import JSON
+from typing import Optional
 from sqlalchemy.orm import relationship
 from config.db import Base
 
@@ -42,10 +44,12 @@ class JournalEntryCategory(Base):
     entry_id = Column(Integer, ForeignKey("journal_entries.id", ondelete="CASCADE"), nullable=False)
     category_id = Column(Integer, ForeignKey("categories.id", ondelete="CASCADE"), nullable=False)
     
-    content = Column(JSONB, nullable=True, default=dict)
-    
+    content = Column(JSON, nullable=True, default=dict)
     rating_score = Column(Float, nullable=True)
 
-    # Relationships
     entry = relationship("JournalEntry", back_populates="category_sections")
     category = relationship("Category", back_populates="entry_associations")
+
+    @property
+    def category_name(self) -> Optional[str]:
+        return self.category.name if self.category else None
