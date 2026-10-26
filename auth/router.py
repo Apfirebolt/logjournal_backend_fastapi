@@ -44,7 +44,7 @@ async def login(request: schema.Login):
         if not request.email or not request.password:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email and password are required")
         # fetch user by email from async auth_db
-        import config.db as auth_db
+        import auth.db as auth_db
         user = await auth_db.get_user_by_email(request.email)
         if not user:
             raise HTTPException(
