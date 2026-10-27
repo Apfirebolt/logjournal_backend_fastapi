@@ -69,7 +69,7 @@ class JournalEntryUpdate(BaseModel):
     gratitude: Optional[Any] = None
     better_day_thoughts: Optional[Any] = None
     journal_date: Optional[datetime] = None
-    
+
     category_sections: Optional[List[EntryCategorySectionCreate]] = None
     habits: Optional[List[HabitCreate]] = None
 
@@ -80,6 +80,7 @@ class JournalEntryResponse(BaseModel):
     title: Optional[str] = None
     highlights: Optional[Any] = None
     gratitude: Optional[Any] = None
+    journal_date: Optional[datetime] = None
     better_day_thoughts: Optional[Any] = None
     created_at: datetime
     updated_at: datetime
