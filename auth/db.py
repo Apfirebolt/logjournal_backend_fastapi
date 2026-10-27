@@ -41,6 +41,47 @@ def _get_user_by_id_sync(user_id: int) -> Optional[models.User]:
         db.close()
 
 
+async def update_user_details(user_id: int, update_data: dict) -> models.User:
+    # Example using sync session wrapped or direct async depending on your config.db setup
+    db = sync_db.SessionLocal()
+    try:
+        user = db.query(models.User).filter(models.User.id == user_id).first()
+        if not user:
+            raise Exception("User not found")
+        
+        for key, value in update_data.items():
+            if value is not None:
+                setattr(user, key, value)
+                
+        db.commit()
+        db.refresh(user)
+        return user
+    finally:
+        db.close()
+
+async def update_user_password_db(user_id: int, hashed_password: str) -> None:
+    db = sync_db.SessionLocal()
+    try:
+        user = db.query(models.User).filter(models.User.id == user_id).first()
+        if user:
+            user.password = hashed_password
+            db.commit()
+    finally:
+        db.close()
+
+async def update_user_profile_image(user_id: int, image_url: str) -> models.User:
+    db = sync_db.SessionLocal()
+    try:
+        user = db.query(models.User).filter(models.User.id == user_id).first()
+        if user:
+            user.profile_image = image_url
+            db.commit()
+            db.refresh(user)
+        return user
+    finally:
+        db.close()
+
+
 def _get_all_users_sync() -> List[models.User]:
     db: Session = sync_db.SessionLocal()
     try:
@@ -59,6 +100,15 @@ async def get_user_by_email(email: str) -> Optional[models.User]:
 
 async def get_user_by_id(user_id: int) -> Optional[models.User]:
     return await run_in_threadpool(_get_user_by_id_sync, user_id)
+
+async def update_user_details_db(user_id: int, update_data: dict) -> models.User:
+    return await run_in_threadpool(update_user_details, user_id, update_data)
+
+async def update_user_profile_image_db(user_id: int, image_url: str) -> models.User:
+    return await run_in_threadpool(update_user_profile_image, user_id, image_url)
+
+async def update_user_password_db(user_id: int, new_hashed_password: str) -> Optional[models.User]:
+    return await run_in_threadpool(_update_user_password_sync, user_id, new_hashed_password)
 
 
 async def get_all_users() -> List[models.User]:

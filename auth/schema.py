@@ -11,16 +11,24 @@ class User(BaseModel):
 class DisplayAccount(BaseModel):
     id: int
     username: str
-    email: str
+    email: EmailStr
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    profile_image: Optional[str] = None
 
     class Config:
         from_attributes = True
 
 
 class UserUpdate(BaseModel):
-    username: Optional[str]
-    email: Optional[EmailStr]
-    password: Optional[str]
+    username: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+
+
+class ChangePassword(BaseModel):
+    current_password: str
+    new_password: str
 
 
 class Login(BaseModel):
