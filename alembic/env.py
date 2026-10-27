@@ -12,6 +12,7 @@ load_dotenv()
 from config.db import Base
 from auth.models import User
 from journal.models import Category, JournalEntry, JournalEntryCategory, JournalHabit
+from notification.models import Notification
 
 
 # Alembic Config object
