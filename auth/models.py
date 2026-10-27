@@ -1,4 +1,5 @@
 from sqlalchemy import Column, Integer, String
+from sqlalchemy.orm import relationship
 from typing import Any
 from config.db import Base
 from . import hashing
@@ -14,6 +15,9 @@ class User(Base):
     role = Column(String(50), nullable=True, default='user')
     password = Column(String(255))
     profile_image = Column(String(500), nullable=True)
+
+    # Add this line to establish the back-population
+    notifications = relationship("Notification", back_populates="user", cascade="all, delete-orphan")
 
     def __init__(self, username: str, email: str, role: str, password: str, first_name: str = None, last_name: str = None, profile_image: str = None, *args: Any, **kwargs: Any) -> None:
         self.username = username

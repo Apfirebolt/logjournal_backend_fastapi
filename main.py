@@ -4,6 +4,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from auth.router import router as auth_router
 from journal.router import router as journal_router
+from notification.router import router as notification_router
+
 
 app = FastAPI(
     title="Log Journal API",
@@ -34,6 +36,7 @@ async def health_check():
 
 app.include_router(auth_router, prefix="")
 app.include_router(journal_router, prefix="")
+app.include_router(notification_router, prefix="")
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
