@@ -21,8 +21,8 @@ class CategoryResponse(CategoryBase):
 # Input/Output schema for category-specific content and rating inside an entry
 class EntryCategorySectionCreate(BaseModel):
     category_id: int
-    content: Optional[Any] = None      # Rich HTML/JSON blocks for this category (nullable)
-    rating_score: Optional[float] = None # Rating for this category (nullable)
+    content: Optional[Any] = None      
+    rating_score: Optional[float] = None
 
 
 class EntryCategorySectionResponse(BaseModel):
@@ -39,11 +39,10 @@ class EntryCategorySectionResponse(BaseModel):
 # Main Journal Entry Schemas
 class JournalEntryCreate(BaseModel):
     title: Optional[str] = None
-    highlights: Optional[Any] = None          # Global prompt
-    gratitude: Optional[Any] = None           # Global prompt
-    better_day_thoughts: Optional[Any] = None # Global prompt
+    highlights: Optional[Any] = None          
+    gratitude: Optional[Any] = None           
+    better_day_thoughts: Optional[Any] = None 
     
-    # List of category sections (Work, Health, Family, Friends, etc.) Alice chose to fill out today
     category_sections: List[EntryCategorySectionCreate] = []
 
 

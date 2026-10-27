@@ -35,3 +35,15 @@ async def list_entries(current_user: auth_schema.TokenData = Depends(get_current
 async def get_entry_detail(entry_id: int, current_user: auth_schema.TokenData = Depends(get_current_user)):
     """Get a specific journal entry by ID"""
     return await services.fetch_entry_detail(entry_id, current_user.id)
+
+@router.delete('/entries/{entry_id}', status_code=status.HTTP_204_NO_CONTENT)
+async def delete_entry(entry_id: int, current_user: auth_schema.TokenData = Depends(get_current_user)):
+    """Delete a specific journal entry by ID"""
+    await services.delete_journal_entry(entry_id, current_user.id)
+    return {"detail": "Journal entry deleted successfully"}
+
+
+@router.put('/entries/{entry_id}', response_model=schema.JournalEntryResponse)
+async def update_entry(entry_id: int, request: schema.JournalEntryUpdate, current_user: auth_schema.TokenData = Depends(get_current_user)):
+    """Update a specific journal entry by ID"""
+    return await services.update_journal_entry(entry_id, current_user.id, request)

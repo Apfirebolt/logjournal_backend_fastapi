@@ -64,6 +64,15 @@ def _create_entry_sync(user_id: int, entry_data: schema.JournalEntryCreate) -> m
     finally:
         db.close()
 
+def _get_entry_by_id_sync(entry_id: int, user_id: int) -> Optional[models.JournalEntry]:
+    db: Session = sync_db.SessionLocal()
+    try:
+        return db.query(models.JournalEntry).options(
+            joinedload(models.JournalEntry.category_sections).joinedload(models.JournalEntryCategory.category)
+        ).filter(models.JournalEntry.id == entry_id, models.JournalEntry.user_id == user_id).first()
+    finally:
+        db.close()
+
 
 def _get_entries_sync(user_id: int) -> List[models.JournalEntry]:
     db: Session = sync_db.SessionLocal()
@@ -75,12 +84,52 @@ def _get_entries_sync(user_id: int) -> List[models.JournalEntry]:
         db.close()
 
 
-def _get_entry_by_id_sync(entry_id: int, user_id: int) -> Optional[models.JournalEntry]:
+def _delete_entry_sync(entry_id: int, user_id: int) -> None:
     db: Session = sync_db.SessionLocal()
     try:
+        entry = db.query(models.JournalEntry).filter(models.JournalEntry.id == entry_id, models.JournalEntry.user_id == user_id).first()
+        if entry:
+            db.delete(entry)
+            db.commit()
+    finally:
+        db.close()
+
+
+def _update_entry_sync(entry_id: int, user_id: int, entry_data: schema.JournalEntryUpdate) -> models.JournalEntry:
+    db: Session = sync_db.SessionLocal()
+    try:
+        entry = db.query(models.JournalEntry).filter(models.JournalEntry.id == entry_id, models.JournalEntry.user_id == user_id).first()
+        if not entry:
+            raise Exception("Journal entry not found")
+
+        # Update scalar fields
+        update_data = entry_data.dict(exclude_unset=True)
+        category_sections_data = update_data.pop("category_sections", None)
+
+        for key, value in update_data.items():
+            setattr(entry, key, value)
+
+        # If category sections are provided in the update, replace them
+        if category_sections_data is not None:
+            db.query(models.JournalEntryCategory).filter(models.JournalEntryCategory.entry_id == entry.id).delete()
+            for section in category_sections_data:
+                section_obj = models.JournalEntryCategory(
+                    entry_id=entry.id,
+                    category_id=section["category_id"],
+                    content=section.get("content"),
+                    rating_score=section.get("rating_score")
+                )
+                db.add(section_obj)
+
+        db.commit()
+        
+        # Return with relationships loaded
         return db.query(models.JournalEntry).options(
             joinedload(models.JournalEntry.category_sections).joinedload(models.JournalEntryCategory.category)
-        ).filter(models.JournalEntry.id == entry_id, models.JournalEntry.user_id == user_id).first()
+        ).filter(models.JournalEntry.id == entry.id).first()
+    except Exception:
+        db.rollback()
+        raise
     finally:
         db.close()
 
@@ -89,14 +138,29 @@ def _get_entry_by_id_sync(entry_id: int, user_id: int) -> Optional[models.Journa
 async def get_categories(user_id: int) -> List[models.Category]:
     return await run_in_threadpool(_get_categories_sync, user_id)
 
+async def get_entry_by_id(entry_id: int, user_id: int) -> Optional[models.JournalEntry]:
+    return await run_in_threadpool(_get_entry_by_id_sync, entry_id, user_id)
+
+async def get_entries(user_id: int) -> List[models.JournalEntry]:
+    return await run_in_threadpool(_get_entries_sync, user_id)
+
+async def delete_entry(entry_id: int, user_id: int) -> None:
+    return await run_in_threadpool(_delete_entry_sync, entry_id, user_id)
+
+async def update_entry(entry_id: int, user_id: int, entry_data: schema.JournalEntryUpdate) -> models.JournalEntry:
+    return await run_in_threadpool(_update_entry_sync, entry_id, user_id, entry_data)
+
 async def create_category(user_id: int, name: str) -> models.Category:
     return await run_in_threadpool(_create_category_sync, user_id, name)
 
 async def create_entry(user_id: int, entry_data: schema.JournalEntryCreate) -> models.JournalEntry:
     return await run_in_threadpool(_create_entry_sync, user_id, entry_data)
 
+async def update_entry(entry_id: int, user_id: int, entry_data: schema.JournalEntryUpdate) -> models.JournalEntry:
+    return await run_in_threadpool(_update_entry_sync, entry_id, user_id, entry_data)
+
 async def get_entries(user_id: int) -> List[models.JournalEntry]:
     return await run_in_threadpool(_get_entries_sync, user_id)
 
-async def get_entry_by_id(entry_id: int, user_id: int) -> Optional[models.JournalEntry]:
-    return await run_in_threadpool(_get_entry_by_id_sync, entry_id, user_id)
+async def delete_entry(entry_id: int, user_id: int) -> None:
+    return await run_in_threadpool(_delete_entry_sync, entry_id, user_id)

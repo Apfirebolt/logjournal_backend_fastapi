@@ -24,6 +24,26 @@ async def create_journal_entry(user_id: int, request: schema.JournalEntryCreate)
             detail=f"An error occurred while creating journal entry: {str(e)}"
         )
 
+async def update_journal_entry(entry_id: int, user_id: int, request: schema.JournalEntryUpdate) -> schema.JournalEntryResponse:
+    try:
+        entry = await journal_db.update_entry(entry_id, user_id, request)
+        return schema.JournalEntryResponse.model_validate(entry)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred while updating journal entry: {str(e)}"
+        )
+
+
+async def delete_journal_entry(entry_id: int, user_id: int) -> None:
+    try:
+        await journal_db.delete_entry(entry_id, user_id)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred while deleting journal entry: {str(e)}"
+        )
+
 
 async def fetch_user_entries(user_id: int) -> List[schema.JournalEntryResponse]:
     entries = await journal_db.get_entries(user_id)
