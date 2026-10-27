@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import List, Optional
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session, joinedload
@@ -38,11 +39,13 @@ def _create_entry_sync(user_id: int, entry_data: schema.JournalEntryCreate) -> m
             title=entry_data.title,
             highlights=entry_data.highlights,
             gratitude=entry_data.gratitude,
-            better_day_thoughts=entry_data.better_day_thoughts
+            better_day_thoughts=entry_data.better_day_thoughts,
+            journal_date=entry_data.journal_date or datetime.utcnow()
         )
         db.add(new_entry)
         db.flush()  # Generates entry.id
 
+        # Add category sections
         for section in entry_data.category_sections:
             section_obj = models.JournalEntryCategory(
                 entry_id=new_entry.id,
@@ -52,23 +55,36 @@ def _create_entry_sync(user_id: int, entry_data: schema.JournalEntryCreate) -> m
             )
             db.add(section_obj)
 
+        # Add habits
+        for habit in entry_data.habits:
+            habit_obj = models.JournalHabit(
+                entry_id=new_entry.id,
+                task_name=habit.task_name,
+                is_completed=habit.is_completed
+            )
+            db.add(habit_obj)
+
         db.commit()
         
-        # Re-query with joined relationships loaded for response validation
+        # Re-query with BOTH relationships joined and loaded before session closes
         return db.query(models.JournalEntry).options(
-            joinedload(models.JournalEntry.category_sections).joinedload(models.JournalEntryCategory.category)
+            joinedload(models.JournalEntry.category_sections).joinedload(models.JournalEntryCategory.category),
+            joinedload(models.JournalEntry.habits)
         ).filter(models.JournalEntry.id == new_entry.id).first()
+        
     except Exception:
         db.rollback()
         raise
     finally:
         db.close()
 
+
 def _get_entry_by_id_sync(entry_id: int, user_id: int) -> Optional[models.JournalEntry]:
     db: Session = sync_db.SessionLocal()
     try:
         return db.query(models.JournalEntry).options(
-            joinedload(models.JournalEntry.category_sections).joinedload(models.JournalEntryCategory.category)
+            joinedload(models.JournalEntry.category_sections).joinedload(models.JournalEntryCategory.category),
+            joinedload(models.JournalEntry.habits)  # Added habits joinedload
         ).filter(models.JournalEntry.id == entry_id, models.JournalEntry.user_id == user_id).first()
     finally:
         db.close()
@@ -78,7 +94,8 @@ def _get_entries_sync(user_id: int) -> List[models.JournalEntry]:
     db: Session = sync_db.SessionLocal()
     try:
         return db.query(models.JournalEntry).options(
-            joinedload(models.JournalEntry.category_sections).joinedload(models.JournalEntryCategory.category)
+            joinedload(models.JournalEntry.category_sections).joinedload(models.JournalEntryCategory.category),
+            joinedload(models.JournalEntry.habits)  # Added habits joinedload
         ).filter(models.JournalEntry.user_id == user_id).all()
     finally:
         db.close()
@@ -105,6 +122,7 @@ def _update_entry_sync(entry_id: int, user_id: int, entry_data: schema.JournalEn
         # Update scalar fields
         update_data = entry_data.dict(exclude_unset=True)
         category_sections_data = update_data.pop("category_sections", None)
+        habits_data = update_data.pop("habits", None)
 
         for key, value in update_data.items():
             setattr(entry, key, value)
@@ -121,11 +139,23 @@ def _update_entry_sync(entry_id: int, user_id: int, entry_data: schema.JournalEn
                 )
                 db.add(section_obj)
 
+        # If habits are provided in the update, replace them
+        if habits_data is not None:
+            db.query(models.JournalHabit).filter(models.JournalHabit.entry_id == entry.id).delete()
+            for habit in habits_data:
+                habit_obj = models.JournalHabit(
+                    entry_id=entry.id,
+                    task_name=habit["task_name"],
+                    is_completed=habit.get("is_completed", False)
+                )
+                db.add(habit_obj)
+
         db.commit()
         
         # Return with relationships loaded
         return db.query(models.JournalEntry).options(
-            joinedload(models.JournalEntry.category_sections).joinedload(models.JournalEntryCategory.category)
+            joinedload(models.JournalEntry.category_sections).joinedload(models.JournalEntryCategory.category),
+            joinedload(models.JournalEntry.habits)
         ).filter(models.JournalEntry.id == entry.id).first()
     except Exception:
         db.rollback()
@@ -138,29 +168,20 @@ def _update_entry_sync(entry_id: int, user_id: int, entry_data: schema.JournalEn
 async def get_categories(user_id: int) -> List[models.Category]:
     return await run_in_threadpool(_get_categories_sync, user_id)
 
-async def get_entry_by_id(entry_id: int, user_id: int) -> Optional[models.JournalEntry]:
-    return await run_in_threadpool(_get_entry_by_id_sync, entry_id, user_id)
-
-async def get_entries(user_id: int) -> List[models.JournalEntry]:
-    return await run_in_threadpool(_get_entries_sync, user_id)
-
-async def delete_entry(entry_id: int, user_id: int) -> None:
-    return await run_in_threadpool(_delete_entry_sync, entry_id, user_id)
-
-async def update_entry(entry_id: int, user_id: int, entry_data: schema.JournalEntryUpdate) -> models.JournalEntry:
-    return await run_in_threadpool(_update_entry_sync, entry_id, user_id, entry_data)
-
 async def create_category(user_id: int, name: str) -> models.Category:
     return await run_in_threadpool(_create_category_sync, user_id, name)
 
 async def create_entry(user_id: int, entry_data: schema.JournalEntryCreate) -> models.JournalEntry:
     return await run_in_threadpool(_create_entry_sync, user_id, entry_data)
 
-async def update_entry(entry_id: int, user_id: int, entry_data: schema.JournalEntryUpdate) -> models.JournalEntry:
-    return await run_in_threadpool(_update_entry_sync, entry_id, user_id, entry_data)
+async def get_entry_by_id(entry_id: int, user_id: int) -> Optional[models.JournalEntry]:
+    return await run_in_threadpool(_get_entry_by_id_sync, entry_id, user_id)
 
 async def get_entries(user_id: int) -> List[models.JournalEntry]:
     return await run_in_threadpool(_get_entries_sync, user_id)
+
+async def update_entry(entry_id: int, user_id: int, entry_data: schema.JournalEntryUpdate) -> models.JournalEntry:
+    return await run_in_threadpool(_update_entry_sync, entry_id, user_id, entry_data)
 
 async def delete_entry(entry_id: int, user_id: int) -> None:
     return await run_in_threadpool(_delete_entry_sync, entry_id, user_id)

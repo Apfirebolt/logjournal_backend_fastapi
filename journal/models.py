@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Float, func
+from sqlalchemy import Boolean, Column, Integer, String, ForeignKey, DateTime, Float, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy import JSON
 from typing import Optional
@@ -24,6 +24,7 @@ class JournalEntry(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
     title = Column(String(200), nullable=True)
+    journal_date = Column(DateTime(timezone=True), nullable=True)
     
     # Global daily reflection prompts (stored as JSONB for rich HTML / block editors)
     highlights = Column(JSONB, nullable=True, default=dict)
@@ -35,6 +36,7 @@ class JournalEntry(Base):
 
     # Relationships
     category_sections = relationship("JournalEntryCategory", back_populates="entry", cascade="all, delete-orphan")
+    habits = relationship("JournalHabit", back_populates="entry", cascade="all, delete-orphan")
 
 
 class JournalEntryCategory(Base):
@@ -44,7 +46,7 @@ class JournalEntryCategory(Base):
     entry_id = Column(Integer, ForeignKey("journal_entries.id", ondelete="CASCADE"), nullable=False)
     category_id = Column(Integer, ForeignKey("categories.id", ondelete="CASCADE"), nullable=False)
     
-    content = Column(JSON, nullable=True, default=dict)
+    content = Column(JSONB, nullable=True, default=dict)
     rating_score = Column(Float, nullable=True)
 
     entry = relationship("JournalEntry", back_populates="category_sections")
@@ -53,3 +55,15 @@ class JournalEntryCategory(Base):
     @property
     def category_name(self) -> Optional[str]:
         return self.category.name if self.category else None
+
+
+class JournalHabit(Base):
+    __tablename__ = "journal_habits"
+
+    id = Column(Integer, primary_key=True, index=True)
+    entry_id = Column(Integer, ForeignKey("journal_entries.id", ondelete="CASCADE"), nullable=False)
+    task_name = Column(String(255), nullable=False)
+    is_completed = Column(Boolean, default=False)
+
+    # Relationship back to entry
+    entry = relationship("JournalEntry", back_populates="habits")
