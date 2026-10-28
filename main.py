@@ -1,7 +1,10 @@
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 
+from pathlib import Path
 from auth.router import router as auth_router
 from journal.router import router as journal_router
 from notification.router import router as notification_router
@@ -14,7 +17,11 @@ app = FastAPI(
     version="0.0.1",
 )
 
-# Allowed frontend origins (with proper comma separation)
+# Setup templates directory (looks for a folder named 'templates' in your project root)
+BASE_DIR = Path(__file__).resolve().parent
+templates = Jinja2Templates(directory=BASE_DIR / "templates")
+
+# Allowed frontend origins
 origins = [
     "https://journal.softgenie.org",
     "http://localhost:3000",
@@ -28,6 +35,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.get("/", response_class=HTMLResponse)
+async def root_dashboard(request: Request):
+    """Serves the Materialize CSS backend status dashboard."""
+    return templates.TemplateResponse(request, "index.html", {})
+
 
 @app.get("/api/health")
 async def health_check():
