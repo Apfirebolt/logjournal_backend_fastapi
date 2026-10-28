@@ -16,9 +16,10 @@ app = FastAPI(
 
 # Allow local dev servers (Vite default or custom 8080)
 origins = [
-    "http://localhost:8080",
-    "http://localhost:3000",
-    "http://localhost:8000",
+    "https://journal.softgenie.org/"
+    # "http://localhost:8080",
+    # "http://localhost:3000",
+    # "http://localhost:8000",
 ]
 
 app.add_middleware(
