@@ -9,7 +9,14 @@ from .jwt import create_access_token, get_current_user
 from .hashing import verify_password, get_password_hash, is_legacy_bcrypt_hash
 from utils.cloudinary_helper import upload_image_to_cloudinary
 
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
+import os
+
 router = APIRouter(tags=['Auth'], prefix='/api/auth')
+
+# Get your Google Client ID from environment variables
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "your-google-client-id.apps.googleusercontent.com")
 
 
 @router.post('/register', status_code=status.HTTP_201_CREATED)
@@ -77,6 +84,76 @@ async def login(request: schema.Login):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error during login"
+        )
+
+
+@router.post('/google')
+async def google_auth(payload: schema.GoogleAuthPayload):
+    """Verify Google ID token, auto-provision user if needed, and issue native JWT token"""
+    try:
+        # Verify the Google ID token
+        idinfo = id_token.verify_oauth2_token(
+            payload.token, 
+            google_requests.Request(), 
+            GOOGLE_CLIENT_ID
+        )
+
+        email = idinfo.get("email")
+        first_name = idinfo.get("given_name", "")
+        last_name = idinfo.get("family_name", "")
+        profile_image = idinfo.get("picture", "")
+        username = email.split("@")[0]
+
+        if not email:
+            raise HTTPException(status_code=400, detail="Google authentication failed: Email not found.")
+
+        # Check if user already exists in database using auth_db
+        user = await auth_db.get_user_by_email(email)
+
+        if not user:
+            # Auto-register new user with a secure random placeholder password
+            random_password = get_password_hash(os.urandom(24).hex())
+            
+            # Construct a user schema object to pass to services registration
+            new_user_data = schema.User(
+                username=username,
+                email=email,
+                role="user",
+                password=random_password,
+                first_name=first_name,
+                last_name=last_name,
+                profile_image=profile_image
+            )
+            user = await services.new_user_register(new_user_data)
+
+        # Build user display model
+        user_data = schema.DisplayAccount(
+            id=user.id,
+            username=user.username,
+            email=user.email,
+            first_name=getattr(user, 'first_name', None),
+            last_name=getattr(user, 'last_name', None),
+            profile_image=getattr(user, 'profile_image', None)
+        )
+
+        # Generate native backend JWT token
+        access_token = create_access_token(data={"sub": user_data.email, "id": user_data.id})
+
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "user": user_data
+        }
+
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=f"Invalid Google Token: {str(e)}")
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Google auth error: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error during Google authentication"
         )
 
 
