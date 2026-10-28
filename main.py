@@ -8,18 +8,17 @@ from notification.router import router as notification_router
 
 
 app = FastAPI(
-    title="Log Journal API",
+    title="Softgenie Journal API",
     docs_url="/docs",
     openapi_url="/openapi.json",
     version="0.0.1",
 )
 
-# Allow local dev servers (Vite default or custom 8080)
+# Allowed frontend origins (with proper comma separation)
 origins = [
-    "https://journal.softgenie.org/"
-    # "http://localhost:8080",
-    # "http://localhost:3000",
-    # "http://localhost:8000",
+    "https://journal.softgenie.org",
+    "http://localhost:3000",
+    "http://localhost:8000",
 ]
 
 app.add_middleware(
