@@ -67,3 +67,8 @@ async def fetch_entry_detail(entry_id: int, user_id: int) -> schema.JournalEntry
             detail="Journal entry not found"
         )
     return schema.JournalEntryResponse.model_validate(entry)
+
+
+async def fetch_user_tags(user_id: int) -> List[schema.TagResponse]:
+    tags = await journal_db.get_user_tags(user_id)
+    return [schema.TagResponse.model_validate(t) for t in tags]

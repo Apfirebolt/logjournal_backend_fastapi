@@ -18,6 +18,11 @@ async def create_category(request: schema.CategoryCreate, current_user: auth_sch
     """Allow user to add custom categories (e.g. Friends)"""
     return await services.add_custom_category(current_user.id, request)
 
+@router.get('/tags', response_model=List[schema.TagResponse])
+async def get_user_tags(current_user: auth_schema.TokenData = Depends(get_current_user)):
+    """Fetch all unique custom tags created by the user"""
+    return await services.fetch_user_tags(current_user.id)
+
 
 @router.post('/entries', response_model=schema.JournalEntryResponse, status_code=status.HTTP_201_CREATED)
 async def create_entry(request: schema.JournalEntryCreate, current_user: auth_schema.TokenData = Depends(get_current_user)):

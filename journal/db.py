@@ -30,6 +30,33 @@ def _create_category_sync(user_id: int, name: str) -> models.Category:
     finally:
         db.close()
 
+def _get_user_tags_sync(user_id: int) -> List[models.Tag]:
+    db: Session = sync_db.SessionLocal()
+    try:
+        return db.query(models.Tag).filter(models.Tag.user_id == user_id).order_by(models.Tag.name).all()
+    finally:
+        db.close()
+
+
+def _get_or_create_tags_sync(db: Session, user_id: int, tag_names: List[str]) -> List[models.Tag]:
+    tag_objects = []
+    for name in tag_names:
+        cleaned_name = name.strip()
+        if not cleaned_name:
+            continue
+        tag = db.query(models.Tag).filter(
+            models.Tag.user_id == user_id,
+            models.Tag.name.ilike(cleaned_name)
+        ).first()
+        
+        if not tag:
+            tag = models.Tag(name=cleaned_name, user_id=user_id)
+            db.add(tag)
+            db.flush()
+            
+        tag_objects.append(tag)
+    return tag_objects
+
 
 def _create_entry_sync(user_id: int, entry_data: schema.JournalEntryCreate) -> models.JournalEntry:
     db: Session = sync_db.SessionLocal()
@@ -44,6 +71,10 @@ def _create_entry_sync(user_id: int, entry_data: schema.JournalEntryCreate) -> m
         )
         db.add(new_entry)
         db.flush()  # Generates entry.id
+
+        # Process and link tags
+        if entry_data.tags:
+            new_entry.tags = _get_or_create_tags_sync(db, user_id, entry_data.tags)
 
         # Add category sections
         for section in entry_data.category_sections:
@@ -66,10 +97,11 @@ def _create_entry_sync(user_id: int, entry_data: schema.JournalEntryCreate) -> m
 
         db.commit()
         
-        # Re-query with BOTH relationships joined and loaded before session closes
+        # Re-query with relationships loaded
         return db.query(models.JournalEntry).options(
             joinedload(models.JournalEntry.category_sections).joinedload(models.JournalEntryCategory.category),
-            joinedload(models.JournalEntry.habits)
+            joinedload(models.JournalEntry.habits),
+            joinedload(models.JournalEntry.tags)
         ).filter(models.JournalEntry.id == new_entry.id).first()
         
     except Exception:
@@ -84,7 +116,8 @@ def _get_entry_by_id_sync(entry_id: int, user_id: int) -> Optional[models.Journa
     try:
         return db.query(models.JournalEntry).options(
             joinedload(models.JournalEntry.category_sections).joinedload(models.JournalEntryCategory.category),
-            joinedload(models.JournalEntry.habits)  # Added habits joinedload
+            joinedload(models.JournalEntry.habits),
+            joinedload(models.JournalEntry.tags)
         ).filter(models.JournalEntry.id == entry_id, models.JournalEntry.user_id == user_id).first()
     finally:
         db.close()
@@ -95,7 +128,8 @@ def _get_entries_sync(user_id: int) -> List[models.JournalEntry]:
     try:
         return db.query(models.JournalEntry).options(
             joinedload(models.JournalEntry.category_sections).joinedload(models.JournalEntryCategory.category),
-            joinedload(models.JournalEntry.habits)  # Added habits joinedload
+            joinedload(models.JournalEntry.habits),
+            joinedload(models.JournalEntry.tags)
         ).filter(models.JournalEntry.user_id == user_id).all()
     finally:
         db.close()
@@ -117,7 +151,8 @@ def _get_entry_by_date_sync(user_id: int, date: str) -> Optional[models.JournalE
     try:
         return db.query(models.JournalEntry).options(
             joinedload(models.JournalEntry.category_sections).joinedload(models.JournalEntryCategory.category),
-            joinedload(models.JournalEntry.habits)
+            joinedload(models.JournalEntry.habits),
+            joinedload(models.JournalEntry.tags)
         ).filter(models.JournalEntry.user_id == user_id, models.JournalEntry.journal_date == date).first()
     finally:
         db.close()
@@ -130,15 +165,19 @@ def _update_entry_sync(entry_id: int, user_id: int, entry_data: schema.JournalEn
         if not entry:
             raise Exception("Journal entry not found")
 
-        # Update scalar fields
         update_data = entry_data.dict(exclude_unset=True)
         category_sections_data = update_data.pop("category_sections", None)
         habits_data = update_data.pop("habits", None)
+        tags_data = update_data.pop("tags", None)
 
         for key, value in update_data.items():
             setattr(entry, key, value)
 
-        # If category sections are provided in the update, replace them
+        # Update tags if provided
+        if tags_data is not None:
+            entry.tags = _get_or_create_tags_sync(db, user_id, tags_data)
+
+        # Update category sections if provided
         if category_sections_data is not None:
             db.query(models.JournalEntryCategory).filter(models.JournalEntryCategory.entry_id == entry.id).delete()
             for section in category_sections_data:
@@ -150,7 +189,7 @@ def _update_entry_sync(entry_id: int, user_id: int, entry_data: schema.JournalEn
                 )
                 db.add(section_obj)
 
-        # If habits are provided in the update, replace them
+        # Update habits if provided
         if habits_data is not None:
             db.query(models.JournalHabit).filter(models.JournalHabit.entry_id == entry.id).delete()
             for habit in habits_data:
@@ -163,10 +202,10 @@ def _update_entry_sync(entry_id: int, user_id: int, entry_data: schema.JournalEn
 
         db.commit()
         
-        # Return with relationships loaded
         return db.query(models.JournalEntry).options(
             joinedload(models.JournalEntry.category_sections).joinedload(models.JournalEntryCategory.category),
-            joinedload(models.JournalEntry.habits)
+            joinedload(models.JournalEntry.habits),
+            joinedload(models.JournalEntry.tags)
         ).filter(models.JournalEntry.id == entry.id).first()
     except Exception:
         db.rollback()
@@ -199,3 +238,6 @@ async def delete_entry(entry_id: int, user_id: int) -> None:
 
 async def get_entry_by_date(user_id: int, date: str) -> Optional[models.JournalEntry]:
     return await run_in_threadpool(_get_entry_by_date_sync, user_id, date)
+
+async def get_user_tags(user_id: int) -> List[models.Tag]:
+    return await run_in_threadpool(_get_user_tags_sync, user_id)
