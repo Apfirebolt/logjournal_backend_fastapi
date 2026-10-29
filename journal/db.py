@@ -112,6 +112,17 @@ def _delete_entry_sync(entry_id: int, user_id: int) -> None:
         db.close()
 
 
+def _get_entry_by_date_sync(user_id: int, date: str) -> Optional[models.JournalEntry]:
+    db: Session = sync_db.SessionLocal()
+    try:
+        return db.query(models.JournalEntry).options(
+            joinedload(models.JournalEntry.category_sections).joinedload(models.JournalEntryCategory.category),
+            joinedload(models.JournalEntry.habits)
+        ).filter(models.JournalEntry.user_id == user_id, models.JournalEntry.journal_date == date).first()
+    finally:
+        db.close()
+
+
 def _update_entry_sync(entry_id: int, user_id: int, entry_data: schema.JournalEntryUpdate) -> models.JournalEntry:
     db: Session = sync_db.SessionLocal()
     try:
@@ -185,3 +196,6 @@ async def update_entry(entry_id: int, user_id: int, entry_data: schema.JournalEn
 
 async def delete_entry(entry_id: int, user_id: int) -> None:
     return await run_in_threadpool(_delete_entry_sync, entry_id, user_id)
+
+async def get_entry_by_date(user_id: int, date: str) -> Optional[models.JournalEntry]:
+    return await run_in_threadpool(_get_entry_by_date_sync, user_id, date)

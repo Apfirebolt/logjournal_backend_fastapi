@@ -16,8 +16,17 @@ async def add_custom_category(user_id: int, request: schema.CategoryCreate) -> s
 
 async def create_journal_entry(user_id: int, request: schema.JournalEntryCreate) -> schema.JournalEntryResponse:
     try:
+        # if the journal for that day already exists, we should not allow creating a new one
+        existing_entry = await journal_db.get_entry_by_date(user_id, request.journal_date)
+        if existing_entry:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Journal entry for this date already exists"
+            )
         entry = await journal_db.create_entry(user_id, request)
         return schema.JournalEntryResponse.model_validate(entry)
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
