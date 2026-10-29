@@ -1,6 +1,15 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from typing import List, Optional, Any, Dict
+from pydantic import Field
 from datetime import datetime
+
+class TagResponse(BaseModel):
+    id: int
+    name: str
+    user_id: int
+
+    class Config:
+        from_attributes = True
 
 
 class CategoryBase(BaseModel):
@@ -61,6 +70,13 @@ class JournalEntryCreate(BaseModel):
     
     category_sections: List[EntryCategorySectionCreate] = []
     habits: List[HabitCreate] = []
+    tags: List[str] = Field(default=[], max_length=5, description="Maximum of 5 tags allowed per entry")
+
+    @field_validator('tags')
+    def validate_tags(cls, v):
+        if len(v) > 5:
+            raise ValueError('A journal entry can have a maximum of 5 tags.')
+        return [tag.strip() for tag in v if tag.strip()]
 
 
 class JournalEntryUpdate(BaseModel):
@@ -72,6 +88,15 @@ class JournalEntryUpdate(BaseModel):
 
     category_sections: Optional[List[EntryCategorySectionCreate]] = None
     habits: Optional[List[HabitCreate]] = None
+    tags: Optional[List[str]] = Field(default=None, max_length=5)
+
+    @field_validator('tags')
+    def validate_tags(cls, v):
+        if v is not None:
+            if len(v) > 5:
+                raise ValueError('A journal entry can have a maximum of 5 tags.')
+            return [tag.strip() for tag in v if tag.strip()]
+        return v
 
 
 class JournalEntryResponse(BaseModel):
@@ -85,9 +110,15 @@ class JournalEntryResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     
-    # Rendered category sections with their content and ratings
     category_sections: List[EntryCategorySectionResponse] = []
     habits: List[HabitResponse] = []
+    tags: List[str] = []
+
+    @field_validator('tags', mode='before')
+    def extract_tag_names(cls, v):
+        if v and isinstance(v, list):
+            return [tag.name if hasattr(tag, 'name') else tag for tag in v]
+        return v
 
     class Config:
         from_attributes = True

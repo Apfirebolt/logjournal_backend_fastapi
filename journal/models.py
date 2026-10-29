@@ -1,9 +1,17 @@
 from sqlalchemy import Boolean, Column, Integer, String, ForeignKey, DateTime, Float, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy import JSON
+from sqlalchemy import UniqueConstraint, Table
 from typing import Optional
 from sqlalchemy.orm import relationship
 from config.db import Base
+
+entry_tags_association = Table(
+    "entry_tags_association",
+    Base.metadata,
+    Column("entry_id", Integer, ForeignKey("journal_entries.id", ondelete="CASCADE"), primary_key=True),
+    Column("tag_id", Integer, ForeignKey("tags.id", ondelete="CASCADE"), primary_key=True)
+)
 
 
 class Category(Base):
@@ -37,6 +45,7 @@ class JournalEntry(Base):
     # Relationships
     category_sections = relationship("JournalEntryCategory", back_populates="entry", cascade="all, delete-orphan")
     habits = relationship("JournalHabit", back_populates="entry", cascade="all, delete-orphan")
+    tags = relationship("Tag", secondary=entry_tags_association, back_populates="entries")
 
 
 class JournalEntryCategory(Base):
@@ -67,3 +76,18 @@ class JournalHabit(Base):
 
     # Relationship back to entry
     entry = relationship("JournalEntry", back_populates="habits")
+
+
+class Tag(Base):
+    __tablename__ = "tags"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(50), nullable=False)
+    user_id = Column(Integer, ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "name", name="uq_user_tag_name"),
+    )
+
+    # Relationship back to entries
+    entries = relationship("JournalEntry", secondary=entry_tags_association, back_populates="tags")
