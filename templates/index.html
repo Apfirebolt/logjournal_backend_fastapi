@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Softgenie Journal API</title>
+  <title>Softgenie Portfolio & Blog API</title>
   <!-- Compiled and minified CSS -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
   <!-- Material Icons -->
@@ -23,6 +23,12 @@
       border-radius: 20px;
       overflow: hidden;
     }
+    .collection .collection-item {
+      transition: background-color 0.2s ease;
+    }
+    .collection .collection-item:hover {
+      background-color: #f1f3f5;
+    }
   </style>
 </head>
 <body>
@@ -30,7 +36,7 @@
   <!-- Navigation Bar -->
   <nav class="indigo darken-3">
     <div class="nav-wrapper container">
-      <a href="#" class="brand-logo">Softgenie Journal API</a>
+      <a href="#" class="brand-logo">Codewalk API</a>
       <ul id="nav-mobile" class="right hide-on-med-and-down">
         <li><a href="/docs" target="_blank"><i class="material-icons left">code</i>Swagger Docs</a></li>
         <li><a href="/redoc" target="_blank"><i class="material-icons left">menu_book</i>ReDoc</a></li>
@@ -48,10 +54,10 @@
               <i class="material-icons left">dns</i>Backend Service Operational
             </span>
             <p class="grey-text text-darken-1">
-              The FastAPI backend server for the Log Journal platform is live, managed by Supervisor, and securely proxied via Nginx.
+              The FastAPI backend server for your Portfolio, Blog, and Gallery platform is live, managed by Supervisor, and securely proxied via Nginx.
             </p>
 
-            <div class="divider my-4" style="margin: 20px 0;"></div>
+            <div class="divider" style="margin: 20px 0;"></div>
 
             <!-- Health Status Badge -->
             <div class="chip" id="health-status-chip">
@@ -59,7 +65,8 @@
               Checking API Health...
             </div>
 
-            <div class="collection mt-4" style="margin-top: 20px;">
+            <!-- Quick Navigation Links -->
+            <div class="collection" style="margin-top: 20px; border-radius: 8px; overflow: hidden;">
               <a href="/api/health" target="_blank" class="collection-item">
                 <i class="material-icons left grey-text">check_circle</i> /api/health Endpoint
               </a>
@@ -73,7 +80,9 @@
           </div>
 
           <div class="card-action grey lighten-4">
-            <a href="https://journal.softgenie.org" target="_blank" class="indigo-text text-darken-3 font-weight-bold">Open Frontend App &rarr;</a>
+            <a href="https://blog.softgenie.org" target="_blank" class="indigo-text text-darken-3 font-weight-bold" style="text-transform: none;">
+              Open Frontend App &rarr;
+            </a>
           </div>
         </div>
       </div>
@@ -81,26 +90,25 @@
   </main>
 
   <!-- Footer -->
-  <page-footer class="page-footer indigo darken-4">
+  <footer class="page-footer indigo darken-4">
     <div class="container">
       <div class="row">
         <div class="col l6 s12">
-          <h5 class="white-text">Softgenie Journal</h5>
-          <p class="grey-text text-lighten-4">Secure, responsive, and robust backend infrastructure.</p>
+          <h5 class="white-text">Codewalk Platform</h5>
+          <p class="grey-text text-lighten-4">Secure, responsive, and robust backend infrastructure built with FastAPI.</p>
         </div>
       </div>
     </div>
     <div class="footer-copyright">
       <div class="container">
-        © 2026 Softgenie
+        © 2026 Codewalk. All rights reserved.
       </div>
     </div>
-  </page-footer>
+  </footer>
 
   <!-- Compiled and minified JavaScript -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
   <script>
-    // Simple script to test health check endpoint on load
     document.addEventListener('DOMContentLoaded', function() {
       const chip = document.getElementById('health-status-chip');
       const icon = document.getElementById('health-icon');
@@ -110,15 +118,11 @@
         .then(data => {
           chip.style.backgroundColor = '#e8f5e9';
           chip.style.color = '#2e7d32';
-          icon.textContent = 'check_circle';
-          icon.style.color = '#2e7d32';
-          chip.innerHTML = `<i class="material-icons left" style="color: #2e7d32;">check_circle</i> Status: Healthy (${data.message})`;
+          chip.innerHTML = `<i class="material-icons left" style="color: #2e7d32;">check_circle</i> Status: Healthy (${data.message || 'OK'})`;
         })
         .catch(error => {
           chip.style.backgroundColor = '#ffebee';
           chip.style.color = '#c62828';
-          icon.textContent = 'error';
-          icon.style.color = '#c62828';
           chip.innerHTML = `<i class="material-icons left" style="color: #c62828;">error</i> Status: Unreachable`;
         });
     });
